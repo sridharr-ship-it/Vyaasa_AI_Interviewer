@@ -2,7 +2,6 @@ streamlit
 streamlit_webrtc
 python-dotenv
 pydub
-pyaudioop
 gtts
 groq
 llama-index-vector-stores-qdrant
