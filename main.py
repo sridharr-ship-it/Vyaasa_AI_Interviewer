@@ -14,7 +14,6 @@ from llama_index.core import (
     Settings,
     StorageContext
 )
-# import webrtcvad
 import io
 import base64
 from llama_index.vector_stores.qdrant import QdrantVectorStore
@@ -46,7 +45,7 @@ from pydub import AudioSegment
 import streamlit as st
 import logging
 from functools import wraps
-# from webrtc_noise_gain import AudioProcessor
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -80,9 +79,9 @@ def log_function_call(func):
             raise
     return wrapper
 
+# Load environment variables
 load_dotenv()
 groq_api_key = os.getenv("GROQ_API_KEY")
-
 
 if groq_api_key:
     os.environ["GROQ_API_KEY"] = groq_api_key
@@ -98,11 +97,22 @@ if not os.path.exists(TRANSCRIPT_DIR):
     os.makedirs(TRANSCRIPT_DIR)
     logger.info(f"Created transcript directory: {TRANSCRIPT_DIR}")
 
-# Set LLM and embedding settings
-llm = Groq(model="llama-3.3-70b-versatile")
+# FIXED: Initialize models only once using @st.cache_resource
+@st.cache_resource
+def initialize_models():
+    """Initialize LLM and embedding models only once"""
+    logger.info("Initializing models (this should happen only once)")
+    llm = Groq(model="llama-3.3-70b-versatile")
+    embed_model = FastEmbedEmbedding(model_name="BAAI/bge-base-en-v1.5")
+    logger.info("Models initialized successfully")
+    return llm, embed_model
+
+# Initialize models once
+llm, embed_model = initialize_models()
+
+# Set global settings
 Settings.llm = llm
-Settings.embed_model = FastEmbedEmbedding(model_name="BAAI/bge-base-en-v1.5")
-logger.info("LLM and embedding models initialized")
+Settings.embed_model = embed_model
 
 # Streamlit setup
 st.set_page_config(page_title="AI Resume Interviewer", layout="wide")
@@ -113,33 +123,42 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.title("📄 Automated Resume Interview Assistant")
 
-# Default session state
-defaults = {
-    "chat_engine": None,
-    "chat_history": [],
-    "evaluations": [],
-    "question_count": 0,
-    "interview_active": False,
-    "interview_ended": False,
-    "current_question": "",
-    "resume_uploaded": False,
-    "interview_start_time": None,
-    "total_answer_time": 0.0,
-    "answer_timer_start": None,
-    "audio_playing": False,
-    "current_audio_key": 0,
-    "processing_response": False,
-    "evaluating_response": False,
-    "session_id": str(uuid.uuid4()),
-    "transcript_file_path": None,
-    "overall_evaluation": None,
-    "generating_overall_evaluation": False,
-    "background_noise": 0
-}
-for key, val in defaults.items():
-    st.session_state.setdefault(key, val)
+# FIXED: Initialize session state only once
+def initialize_session_state():
+    """Initialize session state with default values"""
+    defaults = {
+        "chat_engine": None,
+        "chat_history": [],
+        "evaluations": [],
+        "question_count": 0,
+        "interview_active": False,
+        "interview_ended": False,
+        "current_question": "",
+        "resume_uploaded": False,
+        "interview_start_time": None,
+        "total_answer_time": 0.0,
+        "answer_timer_start": None,
+        "audio_playing": False,
+        "current_audio_key": 0,
+        "processing_response": False,
+        "evaluating_response": False,
+        "session_id": str(uuid.uuid4()),
+        "transcript_file_path": None,
+        "overall_evaluation": None,
+        "generating_overall_evaluation": False,
+        "background_noise": 0,
+        "caption_history": deque(maxlen=MAX_CAPTION_LINES),
+        "full_transcript": []
+    }
+    
+    for key, val in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = val
+    
+    logger.info(f"Session initialized with ID: {st.session_state.session_id}")
 
-logger.info(f"Session initialized with ID: {st.session_state.session_id}")
+# Initialize session state
+initialize_session_state()
 
 @log_function_call
 def autoplay_audio(file_path: str):
@@ -435,212 +454,6 @@ def play_tts_with_display(text):
         st.session_state.audio_playing = False
         status.empty()
 
-
-# Load the Pyannote speaker diarization pipeline
-# @st.cache_resource
-# @log_function_call
-# def load_diarization_pipeline():
-#     try:
-#         logger.info("Loading Pyannote diarization pipeline")
-#         pipeline = Pipeline.from_pretrained(
-#             "pyannote/speaker-diarization-3.1",
-#             use_auth_token=HF_TOKEN
-#         )
-#         logger.info("Pyannote pipeline loaded successfully")
-#         return pipeline
-#     except Exception as e:
-#         logger.error(f"Error loading Pyannote pipeline: {e}")
-#         st.error(f"Error loading Pyannote pipeline: {e}")
-#         return None
-
-# Load the Faster-Whisper model
-
-
-# if torch.cuda.is_available():
-#     logger.info("CUDA available, loading GPU models")
-# diarization_pipeline = load_diarization_pipeline()
-
-# else:
-#     logger.warning("GPU not available, disabling diarization and Whisper")
-
-#     diarization_pipeline = None
-
-#
-# @log_function_call
-# def apply_vad_with_ns(audio_bytes, aggressiveness=2, frame_ms=30, ns_level=2):
-#     """
-#     Apply WebRTC noise suppression + VAD.
-#     Returns denoised, speech-only audio (pydub.AudioSegment).
-#
-#     Args:
-#         audio_bytes: Raw audio bytes (any format supported by pydub).
-#         aggressiveness: VAD aggressiveness (0–3).
-#         frame_ms: Frame size for VAD (10, 20, or 30 ms).
-#         ns_level: Noise suppression level (0–3).
-#     """
-#     if frame_ms not in (10, 20, 30):
-#         raise ValueError("frame_ms must be 10, 20, or 30 ms")
-#
-#     logger.info(
-#         f"Applying NS(level={ns_level}) and VAD(aggressiveness={aggressiveness}, frame_ms={frame_ms})"
-#     )
-#
-#     # Standardize audio format → 16 kHz, mono, 16-bit PCM
-#     audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
-#     audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
-#
-#     vad = webrtcvad.Vad(aggressiveness)
-#     ns = AudioProcessor(ns_level, 16000)  # ✅ fixed constructor
-#
-#     raw_data = audio.raw_data
-#
-#     # Frame sizes
-#     ns_frame_size = int(16000 * 0.01) * 2  # 10 ms = 320 bytes
-#     vad_frame_size = int(16000 * frame_ms / 1000) * 2  # bytes for VAD
-#
-#     speech_chunks = []
-#     total_frames, speech_frames = 0, 0
-#
-#     buffer = b""  # collect NS-cleaned frames until we reach a VAD window
-#
-#     for i in range(0, len(raw_data) - ns_frame_size + 1, ns_frame_size):
-#         ns_frame = raw_data[i:i + ns_frame_size]
-#
-#         # ✅ Apply noise suppression (always 10 ms)
-#         ns_result = ns.Process10ms(ns_frame)
-#         cleaned_frame = ns_result.audio
-#
-#         buffer += cleaned_frame
-#
-#         # ✅ Once buffer reaches VAD frame size → run VAD
-#         while len(buffer) >= vad_frame_size:
-#             frame = buffer[:vad_frame_size]
-#             buffer = buffer[vad_frame_size:]
-#
-#             total_frames += 1
-#             if vad.is_speech(frame, 16000):
-#                 speech_frames += 1
-#                 cleaned_chunk = AudioSegment(
-#                     data=frame,
-#                     sample_width=2,
-#                     frame_rate=16000,
-#                     channels=1
-#                 )
-#                 speech_chunks.append(cleaned_chunk)
-#
-#     speech_audio = sum(speech_chunks, AudioSegment.silent(duration=0))
-#
-#     logger.info(
-#         f"Processed {total_frames} VAD frames → {speech_frames} speech "
-#         f"({(speech_frames/total_frames if total_frames else 0):.2%} speech ratio)"
-#     )
-#     return speech_audio
-
-
-#
-# @log_function_call
-# def recognize_speech_with_diarization(audio_bytes):
-#     """Run WebRTC VAD → Pyannote diarization → Groq Whisper transcription."""
-#     logger.info("Starting pipeline: VAD + diarization + Groq Whisper")
-#
-#     if not audio_bytes or not diarization_pipeline:
-#         logger.warning("Missing audio bytes or diarization model")
-#         return None
-#
-#     def merge_segments(results):
-#         """Merge consecutive segments from the same speaker into one."""
-#         merged = []
-#         for seg in results:
-#             if merged and merged[-1]["speaker"] == seg["speaker"]:
-#                 # Extend previous speaker's segment
-#                 merged[-1]["end"] = seg["end"]
-#                 merged[-1]["text"] += " " + seg["text"]
-#             else:
-#                 merged.append(seg.copy())
-#         return merged
-#
-#     vad_path = None
-#     try:
-#         # ✅ Step 1: Apply VAD to clean noise
-#         vad_audio = apply_vad_with_ns(audio_bytes, aggressiveness=2)
-#         logger.info("Applied VAD, exporting cleaned audio for diarization")
-#
-#         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as vad_fp:
-#             vad_audio.export(vad_fp.name, format="wav")
-#             vad_path = vad_fp.name
-#
-#         # ✅ Step 2: Run Pyannote diarization
-#         logger.info("Running speaker diarization")
-#         diarization = diarization_pipeline(vad_path)
-#         audio = AudioSegment.from_file(vad_path)
-#         results = []
-#         client = groq.Client()
-#
-#         # ✅ Step 3: Transcribe each segment with Groq Whisper
-#         for seg_num, (turn, _, speaker) in enumerate(diarization.itertracks(yield_label=True), start=1):
-#             logger.info(f"Processing segment {seg_num} for speaker {speaker}")
-#             start_ms = int(turn.start * 1000)
-#             end_ms = int(turn.end * 1000)
-#             segment_audio = audio[start_ms:end_ms]
-#
-#             # ✅ Save to temp .wav file
-#             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-#                 segment_audio.export(tmp.name, format="wav")
-#                 tmp.flush()
-#                 with open(tmp.name, "rb") as f:
-#                     transcription = client.audio.transcriptions.create(
-#                         file=f,
-#                         model="whisper-large-v3",
-#                         response_format="text",
-#                     )
-#             os.remove(tmp.name)
-#
-#             if transcription and transcription.strip():
-#                 text = transcription.strip()
-#                 logger.info(f"Groq transcription (segment {seg_num}): {text[:100]}...")
-#             else:
-#                 text = ""
-#                 logger.warning(f"Empty transcription for segment {seg_num}")
-#
-#             results.append({
-#                 "speaker": speaker,
-#                 "start": turn.start,
-#                 "end": turn.end,
-#                 "text": text,
-#             })
-#
-#         # ✅ Cleanup VAD file
-#         if vad_path and os.path.exists(vad_path):
-#             os.remove(vad_path)
-#
-#         # ✅ Step 4: Merge segments
-#         results = merge_segments(results)
-#         unique_speakers = {r["speaker"] for r in results if r["text"]}
-#
-#         # ✅ Step 5: Build transcript
-#         if any(r["text"] for r in results):
-#             if len(unique_speakers) > 1:
-#                 st.warning("⚠️ Multiple speakers detected.")
-#                 transcript = " ".join(
-#                     [f"{r['speaker']}: {r['text']}" for r in results if r['text']]
-#                 )
-#             else:
-#                 transcript = " ".join([r["text"] for r in results if r["text"]])
-#
-#             logger.info(f"Final transcript: {transcript[:100]}...")
-#             st.success(f"✅ Recorded: {transcript}")
-#             return transcript
-#         else:
-#             st.warning("⚠️ No speech detected.")
-#             logger.warning("No speech detected after VAD + diarization")
-#             return None
-#
-#     except Exception as e:
-#         logger.error(f"Error in VAD + diarization + Groq Whisper: {e}", exc_info=True)
-#         st.error(f"⚠️ Speech recognition error: {str(e)}")
-#         return None
-#
-
 @log_function_call
 def transcribe_audio(audio_segment: pydub.AudioSegment) -> str:
     """Transcribe audio using Groq's Whisper API."""
@@ -676,17 +489,9 @@ def transcribe_audio(audio_segment: pydub.AudioSegment) -> str:
         st.error(f"⚠️ Groq Whisper error: {str(groq_error)}")
         return None
 
-# Use a separate function to handle the transcription logic
-# This function no longer returns a value, but stores it in session state
 @log_function_call
 def recognize_speech_enhanced():
     logger.info("Starting enhanced speech recognition")
-
-    # Initialize caption history and full transcript in session state
-    if "caption_history" not in st.session_state:
-        st.session_state.caption_history = deque(maxlen=MAX_CAPTION_LINES)
-    if "full_transcript" not in st.session_state:
-        st.session_state.full_transcript = []
 
     try:
         webrtc_ctx = webrtc_streamer(
@@ -792,7 +597,6 @@ def recognize_speech_enhanced():
 
                     buffer_chunk = pydub.AudioSegment.empty()
 
-
             else:
                 status_indicator.write("AudioReceiver is not set. Abort.")
                 break
@@ -803,7 +607,6 @@ def recognize_speech_enhanced():
         logger.error(f"Audio recording error: {e}")
         st.error(f"⚠️ Audio recording error: {str(e)}")
         # Do not return anything, let the script continue
-
 
 @log_function_call
 def get_remaining_time():
@@ -832,7 +635,6 @@ def safe_chat(prompt):
         return "Could you please clarify or rephrase your answer?"
 
 @log_function_call
-# Saves the full interview transcript (questions, answers, evaluations, scores, metadata) to a .txt file.
 def save_transcript_to_file():
     """Save the current transcript to a temp file"""
     if not st.session_state.chat_history:
@@ -907,6 +709,7 @@ def save_transcript_to_file():
     except Exception as e:
         st.error(f"Error saving transcript: {e}")
         return None
+
 @log_function_call
 def get_transcript_download():
     """Generate download button for transcript"""
@@ -934,7 +737,6 @@ def get_transcript_download():
             return None
     return None
 
-
 @log_function_call
 def display_timer():
     """Display timer in the main column"""
@@ -954,6 +756,7 @@ def display_timer():
 
             progress = remaining / 600
             st.progress(progress, text=f"Interview Progress: {int((1-progress)*100)}% Complete")
+
 @log_function_call
 def get_score_color(score):
     """Return color based on score"""
@@ -965,10 +768,6 @@ def get_score_color(score):
         return "🟠"
     else:
         return "🔴"
-
-
-# Shows the ongoing conversation (interviewer + candidate) in the sidebar. Displays each candidate response with an expandable evaluation score/feedback.
-# Updates in real-time with “evaluating…” messages when scoring is in progress.
 
 @log_function_call
 def display_live_transcription():
@@ -1030,6 +829,7 @@ def display_overall_evaluation_section():
             st.session_state.generating_overall_evaluation = False
             st.rerun()
 
+# Display live transcription
 display_live_transcription()
 
 # Main content in left column
@@ -1059,7 +859,6 @@ with col1:
                 system_prompt = """
         You are "Vyaasa", a professional, friendly, and adaptive AI interviewer.
  
-
         <INST>
         Keep responses short, focused, and direct. Do not acknowledge every candidate response. Ask progressively harder and more technical questions strictly based on the candidate's resume.
         </INST>
@@ -1130,9 +929,6 @@ with col1:
         - Professional, respectful, but challenging.  
         """
 
-
-
-
                 intro_context = """
                 About Me:
                 I'm Vyaasa, an AI-powered recruitment platform that helps companies hire better and faster.
@@ -1156,13 +952,10 @@ with col1:
         except Exception as e:
             st.error(f"Error processing resume: {e}")
 
+    # Display timer
+    display_timer()
 
-
-display_timer()
-
-
-with col1:
-
+    # Interview start button
     if (st.session_state.resume_uploaded and
         st.session_state.chat_engine and
         not st.session_state.interview_active and
@@ -1200,8 +993,7 @@ with col1:
                 st.error(f"Error starting interview: {e}")
                 st.session_state.interview_active = False
 
-   # Complete fixed interview logic section:
-
+    # Main interview logic
     elif (st.session_state.interview_active and
         st.session_state.chat_engine and
         not st.session_state.audio_playing):
@@ -1350,8 +1142,7 @@ with col1:
     elif st.session_state.evaluating_response:
         st.info("🔍 Evaluating your response... Please wait.")
 
-    # CRITICAL: Add the final results display section here
-    # This section must be OUTSIDE the interview_active conditions
+    # Final results display section
     if (st.session_state.interview_ended or
         (not st.session_state.interview_active and st.session_state.question_count > 0)):
 
@@ -1409,10 +1200,38 @@ with col1:
                 if st.session_state.chat_history:
                     save_transcript_to_file()
 
-                # Reset all session state except resume data
-                for key in defaults:
+                # Reset all session state except resume data and models
+                for key in st.session_state.keys():
                     if key not in ["chat_engine", "resume_uploaded"]:
-                        st.session_state[key] = defaults[key]
+                        if key in ["caption_history", "full_transcript"]:
+                            st.session_state[key] = deque(maxlen=MAX_CAPTION_LINES) if key == "caption_history" else []
+                        else:
+                            # Use defaults dict for reset values
+                            defaults = {
+                                "chat_engine": None,
+                                "chat_history": [],
+                                "evaluations": [],
+                                "question_count": 0,
+                                "interview_active": False,
+                                "interview_ended": False,
+                                "current_question": "",
+                                "resume_uploaded": False,
+                                "interview_start_time": None,
+                                "total_answer_time": 0.0,
+                                "answer_timer_start": None,
+                                "audio_playing": False,
+                                "current_audio_key": 0,
+                                "processing_response": False,
+                                "evaluating_response": False,
+                                "session_id": str(uuid.uuid4()),
+                                "transcript_file_path": None,
+                                "overall_evaluation": None,
+                                "generating_overall_evaluation": False,
+                                "background_noise": 0
+                            }
+                            if key in defaults:
+                                st.session_state[key] = defaults[key]
+                
                 st.session_state.session_id = str(uuid.uuid4())
                 st.rerun()
 
@@ -1422,56 +1241,11 @@ with col1:
                 if st.session_state.chat_history:
                     save_transcript_to_file()
 
-                # Reset everything
-                for key in defaults:
-                    st.session_state[key] = defaults[key]
-                st.session_state.session_id = str(uuid.uuid4())
+                # Reset everything except cached models
+                keys_to_reset = list(st.session_state.keys())
+                for key in keys_to_reset:
+                    del st.session_state[key]
+                
+                # Reinitialize
+                initialize_session_state()
                 st.rerun()
-
-
-# Also update the display_live_transcription function to better handle the final evaluation:
-
-def display_live_transcription():
-    """Display live transcription in the sidebar with evaluations"""
-    with col2:
-        st.markdown("### 💬 Live Transcription")
-
-        if not st.session_state.chat_history:
-            st.info("🎯 Start the interview to see live transcription here!")
-            return
-
-        chat_container = st.container()
-
-        with chat_container:
-            eval_index = 0
-            user_response_count = 0
-
-            for i, (role, message) in enumerate(st.session_state.chat_history):
-                timestamp = datetime.now().strftime("%H:%M:%S")
-
-                if role == "Assistant":
-                    with st.chat_message("assistant", avatar="🤖"):
-                        st.write(f"{message}")
-                        st.caption(f"Vyaasa • {timestamp}")
-                else:
-                    user_response_count += 1
-                    with st.chat_message("user", avatar="👤"):
-                        st.write(message)
-
-                        # Show evaluation if available
-                        if eval_index < len(st.session_state.evaluations):
-                            eval_data = st.session_state.evaluations[eval_index]
-                            score_color = get_score_color(eval_data['score'])
-
-                            with st.expander(f"{score_color} Score: {eval_data['score']}", expanded=False):
-                                st.write(f"**Evaluation:** {eval_data['evaluation']}")
-                                st.caption(f"Evaluated at {eval_data['timestamp']}")
-
-                            eval_index += 1
-                        # Show evaluating status for the most recent unevaluated response
-                        elif (st.session_state.evaluating_response and
-                              eval_index == len(st.session_state.evaluations) and
-                              i == len(st.session_state.chat_history) - 1):
-                            st.info("🔄 Evaluating response...")
-
-                        st.caption(f"You • {timestamp}")
