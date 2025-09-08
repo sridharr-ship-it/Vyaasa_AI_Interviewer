@@ -82,7 +82,7 @@ def log_function_call(func):
 
 load_dotenv()
 groq_api_key = os.getenv("GROQ_API_KEY")
-hf_token = os.getenv("HF_TOKEN")
+
 
 if groq_api_key:
     os.environ["GROQ_API_KEY"] = groq_api_key
@@ -90,14 +90,6 @@ if groq_api_key:
 else:
     logger.error("GROQ_API_KEY not found")
     st.error("⚠️ GROQ_API_KEY not found. Please set it in your .env file or environment.")
-    st.stop()
-
-if hf_token:
-    os.environ["HF_TOKEN"] = hf_token
-    logger.info("HF_TOKEN loaded successfully")
-else:
-    logger.error("HF_TOKEN not found")
-    st.error("⚠️ HF_TOKEN not found. Please set it in your .env file or environment.")
     st.stop()
 
 # Create temp directory for storing transcripts
