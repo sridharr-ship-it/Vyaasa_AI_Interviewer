@@ -435,11 +435,6 @@ def play_tts_with_display(text):
         st.session_state.audio_playing = False
         status.empty()
 
-HF_TOKEN = os.getenv("HF_TOKEN")
-if not HF_TOKEN:
-    logger.error("HF_TOKEN not found in environment")
-    st.error("⚠️ Hugging Face token not found. Please set the HF_TOKEN environment variable.")
-    st.stop()
 
 # Load the Pyannote speaker diarization pipeline
 # @st.cache_resource
