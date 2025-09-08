@@ -1,0 +1,13 @@
+streamlit
+streamlit_webrtc
+python-dotenv
+pydub
+gtts
+groq
+llama-index-vector-stores-qdrant
+llama-index-readers-file
+llama-index-llms-groq
+llama-index-embeddings-fastembed
+
+
+
