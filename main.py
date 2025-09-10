@@ -1128,14 +1128,6 @@ with col1:
                         st.session_state.evaluating_response = False
                         st.rerun()
 
-    # Display current status when not in active interview
-    elif not st.session_state.interview_active and not st.session_state.audio_playing:
-        if not st.session_state.resume_uploaded:
-            st.info("upload your resume to get started.")
-        if st.session_state.interview_ended:
-            st.success("✅ Interview completed!")
-        else:
-            st.info("🎯 Click 'Start Automated Interview' to begin.")
 
     # Show evaluation status when evaluating
     elif st.session_state.evaluating_response:
