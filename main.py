@@ -834,7 +834,7 @@ display_live_transcription()
 # Main content in left column
 with col1:
     # File upload section
-    uploaded_file = st.file_uploader("Resume Upload",type=["pdf", "docx", "txt"])
+    uploaded_file = st.file_uploader("Upload your Resume",type=["pdf", "docx", "txt"])
 
     if uploaded_file and not st.session_state.resume_uploaded:
         temp_dir = tempfile.mkdtemp()
