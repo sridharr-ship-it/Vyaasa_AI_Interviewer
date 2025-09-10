@@ -780,7 +780,6 @@ def display_live_transcription():
 
         with chat_container:
             
-            st.markdown("### 💬 Live Transcription")
             eval_index = 0
             for i, (role, message) in enumerate(st.session_state.chat_history):
                 timestamp = datetime.now().strftime("%H:%M:%S")
