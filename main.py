@@ -773,15 +773,14 @@ def get_score_color(score):
 def display_live_transcription():
     """Display live transcription in the sidebar with evaluations"""
     with col2:
-        st.markdown("### 💬 Live Transcription")
 
-        if not st.session_state.chat_history:
-            st.info("🎯 Start the interview to see live transcription here!")
-            return
+    
 
         chat_container = st.container()
 
         with chat_container:
+            
+            st.markdown("### 💬 Live Transcription")
             eval_index = 0
             for i, (role, message) in enumerate(st.session_state.chat_history):
                 timestamp = datetime.now().strftime("%H:%M:%S")
@@ -835,7 +834,7 @@ display_live_transcription()
 # Main content in left column
 with col1:
     # File upload section
-    uploaded_file = st.file_uploader("Upload your resume", type=["pdf", "docx", "txt"])
+    uploaded_file = st.file_uploader( type=["pdf", "docx", "txt"])
 
     if uploaded_file and not st.session_state.resume_uploaded:
         temp_dir = tempfile.mkdtemp()
@@ -1132,8 +1131,8 @@ with col1:
     # Display current status when not in active interview
     elif not st.session_state.interview_active and not st.session_state.audio_playing:
         if not st.session_state.resume_uploaded:
-            st.info("📄 Please upload your resume to get started.")
-        elif st.session_state.interview_ended:
+            st.info("upload your resume to get started.")
+        if st.session_state.interview_ended:
             st.success("✅ Interview completed!")
         else:
             st.info("🎯 Click 'Start Automated Interview' to begin.")
