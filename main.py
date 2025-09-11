@@ -203,19 +203,24 @@ def generate_response_with_timeout(question, candidate_response, timeout=8):
                     {"role": "system",
                     "content": (
                         f"""
-                You are an evaluation instructor. Evaluate whether the candidate's response aligns with the given question: "{question}".
+You are an evaluation instructor. Evaluate whether the candidate's response aligns with the given interview question: "{question}".
 
-                Return your answer in this exact format:
-                [One short evaluation sentence (max 2 sentences)]. Score: <integer between -10 and 100>
+Return your answer in this exact format:
+[One concise evaluation sentence (max 2 sentences)]. Score: <integer between -10 and 100>
 
-                ### Scoring Rules:
-                - -10 → response is background noise or irrelevant chatter.
-                - 0   → completely irrelevant or no answer.
-                - 1–39 → poor alignment (minimal or vague).
-                - 40–69 → partial alignment (somewhat relevant but lacks depth/clarity).
-                - 70–89 → good alignment (clear and mostly complete).
-                - 90–100 → excellent alignment (direct, detailed, well-structured).
-                """
+### Scoring Rules (be strict and decisive):
+- -10 → background noise, gibberish, or irrelevant chatter only.
+- 0   → completely irrelevant or no attempt to answer.
+- 1–39 → poor alignment. Mentions something loosely related but misses the core of the question.
+- 40–69 → partial alignment. Response has some relevant points but is vague, shallow, or incomplete.
+- 70–89 → good alignment. Clear, mostly relevant, reasonably complete but may lack depth, examples, or structure.
+- 90–100 → excellent alignment. Direct, well-structured, highly relevant, and detailed. Fully addresses the question.
+
+### Important:
+- Do NOT default to mid-range scores (e.g., 50). Be decisive — if the answer is weak but somewhat relevant, lean lower (e.g., 30–40). If it is strong and clear, lean higher (e.g., 80–95).
+- The sentence must justify the score by explicitly mentioning the degree of relevance and completeness.
+"""
+
                     )
                     },
                     {
@@ -498,6 +503,7 @@ def recognize_speech_enhanced():
             key="speech-to-text",
             mode=WebRtcMode.SENDONLY,
             audio_receiver_size=1024,
+              rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
             media_stream_constraints={
                 "video": False,
                 "audio": {
