@@ -951,7 +951,7 @@ with col1:
         if st.button("🎯 Start Automated Interview", type="primary"):
             try:
                 with col2:
-                    st.markdown("### Vyaasa Conversation")
+                   
                 st.session_state.interview_active = True
                 st.session_state.interview_start_time = datetime.now()
                 st.session_state.chat_history = []
