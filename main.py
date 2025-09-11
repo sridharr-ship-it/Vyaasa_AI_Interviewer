@@ -56,7 +56,7 @@ logging.basicConfig(
     ]
 )
 BUFFER_DURATION = 5  # seconds
-MAX_CAPTION_LINES = 5
+MAX_CAPTION_LINES = 3
 # Create logger
 logger = logging.getLogger(__name__)
 
