@@ -738,24 +738,6 @@ def get_transcript_download():
     return None
 
 @log_function_call
-def display_timer():
-    """Display timer in the main column"""
-    if st.session_state.interview_active and st.session_state.interview_start_time:
-        remaining = get_remaining_time()
-        mins, secs = divmod(int(remaining), 60)
-
-        # Fixed timer display to show correct question progress
-        completed_answers = len([h for h in st.session_state.chat_history if h[0] == "You"])
-        current_question = completed_answers + 1
-
-        timer_col1, timer_col2, timer_col3 = st.sidebar.columns([1, 2, 1])
-
-        with timer_col2:
-            st.metric("⏱️ Time Remaining", f"{mins:02d}:{secs:02d}",
-                     delta=f"Question {min(current_question, 5)}/5")
-
-            progress = remaining / 600
-            st.progress(progress, text=f"Interview Progress: {int((1-progress)*100)}% Complete")
 
 @log_function_call
 def get_score_color(score):
@@ -952,7 +934,7 @@ with col1:
             st.error(f"Error processing resume: {e}")
 
     # Display timer
-    display_timer()
+
 
     # Interview start button
     if (st.session_state.resume_uploaded and
