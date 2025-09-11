@@ -950,7 +950,7 @@ with col1:
 
         if st.button("🎯 Start Automated Interview", type="primary"):
             try:
-                with col2:
+                
                    
                 st.session_state.interview_active = True
                 st.session_state.interview_start_time = datetime.now()
