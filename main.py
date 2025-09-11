@@ -381,7 +381,6 @@ def generate_overall_evaluation():
                 - Be constructive, specific, and professional.  
 
                 4. **Detailed Section-wise Feedback**  
-                - **Experience:** Comment on how clearly and effectively the candidate described past work.  score: 0-100(based on performance)
                 - **Technical Knowledge:** Evaluate their ability to explain concepts, problem-solving, and depth of knowledge.  score: 0-100(based on performance)
                 - **Projects Knowledge:** Assess how well they articulated their project details, roles, and outcomes.  score: 0-100(based on performance)
                 - Add additional remarks if needed (communication style, confidence, time management).  
