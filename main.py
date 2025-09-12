@@ -203,23 +203,28 @@ def generate_response_with_timeout(question, candidate_response, timeout=8):
                     {"role": "system",
                     "content": (
                         f"""
-You are an evaluation instructor. Evaluate whether the candidate's response aligns with the given interview question: "{question}".
+You are an evaluation instructor. Evaluate whether the candidate's response aligns with the interview question: "{question}".  
 
-Return your answer in this exact format:
-[One concise evaluation sentence (max 2 sentences)]. Score: <integer between -10 and 100>
+Return your output in this exact format:  
+[One concise evaluation sentence (max 2 sentences)]. Score: <integer between -10 and 100>  
 
-### Scoring Rules (be strict and decisive):
-- -10 → background noise, gibberish, or irrelevant chatter only.
-- 0   → completely irrelevant or no attempt to answer.
-- 1–39 → poor alignment. Mentions something loosely related but misses the core of the question.
-- 40–69 → partial alignment. Response has some relevant points but is vague, shallow, or incomplete.
-- 70–89 → good alignment. Clear, mostly relevant, reasonably complete but may lack depth, examples, or structure.
-- 90–100 → excellent alignment. Direct, well-structured, highly relevant, and detailed. Fully addresses the question.
+### Scoring Rules (strict and decisive):  
+- -10 → background noise, gibberish, or irrelevant chatter only.  
+- 0   → completely irrelevant or no attempt to answer.  
+- 1–39 → poor alignment. Mentions something loosely related but misses the core of the question.  
+- 40–69 → partial alignment. Some relevant points but vague, shallow, or incomplete.  
+- 70–80 → good alignment. Clear and relevant, but short/simple with little detail or structure.  
+- 81–84 → solid alignment. Relevant and somewhat structured, but still lacks depth or completeness.  
+- 85–89 → strong alignment. Well-structured and detailed, covering most aspects of the question.  
+- 90–100 → excellent alignment. Direct, comprehensive, highly relevant, detailed, and well-structured.  
 
-### Important:
-- Do NOT default to mid-range scores (e.g., 50). Be decisive — if the answer is weak but somewhat relevant, lean lower (e.g., 30–40). If it is strong and clear, lean higher (e.g., 80–95).
-- The sentence must justify the score by explicitly mentioning the degree of relevance and completeness.
+### Important Notes for Evaluation:  
+- Be strict. Do NOT default to mid-range scores (like 50).  
+- Short but correct answers = **maximum 80** (detail/structure required for higher).  
+- Longer, structured, and more detailed answers = **85+**.  
+- Always justify the score by clearly stating how relevant, complete, or detailed the response is.  
 """
+
 
                     )
                     },
